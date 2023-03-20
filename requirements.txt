@@ -1,3 +1,4 @@
 youtube_comment_downloader
 wordcloud
 matplotlib
+google.cloud.language
