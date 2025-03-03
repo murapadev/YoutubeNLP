@@ -34,7 +34,7 @@ A Streamlit application for analyzing YouTube video comments using Natural Langu
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/murapa/YoutubeNLP.git
+git clone https://github.com/murapa96/YoutubeNLP.git
 cd YoutubeNLP
 ```
 
