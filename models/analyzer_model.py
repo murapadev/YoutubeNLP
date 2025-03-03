@@ -220,6 +220,34 @@ class NLPAnalyzer:
             results.extend(batch_results)
         return results
 
+    def _analyze_emojis(self, text: str) -> Dict[str, Any]:
+        """
+        Analyze emojis in the text.
+
+        Args:
+            text: The text to analyze
+
+        Returns:
+            Dict[str, Any]: Dictionary containing found emojis, count, and a placeholder sentiment score.
+        """
+        try:
+            import emoji
+            if hasattr(emoji, 'is_emoji'):
+                found = [c for c in text if emoji.is_emoji(c)]
+            elif hasattr(emoji, 'EMOJI_DATA'):
+                found = [c for c in text if c in emoji.EMOJI_DATA]
+            else:
+                found = []
+            # Placeholder for emoji sentiment analysis
+            emoji_sentiment = 0.0
+            return {"emojis": found, "emoji_count": len(found), "emoji_sentiment": emoji_sentiment}
+        except ImportError:
+            self.logger.warning("Emoji module not installed; skipping emoji analysis.")
+            return {"emojis": [], "emoji_count": 0, "emoji_sentiment": 0.0}
+        except Exception as e:
+            self.logger.warning(f"Error during emoji analysis: {e}")
+            return {"emojis": [], "emoji_count": 0, "emoji_sentiment": 0.0}
+
 
 class TextBlobAnalyzer(NLPAnalyzer):
     """NLP analyzer using TextBlob with transformer model enhancements."""
@@ -259,7 +287,8 @@ class TextBlobAnalyzer(NLPAnalyzer):
                 "keywords": [],
                 "language": "en",
                 "entities": [],
-                "emotions": {}
+                "emotions": {},
+                "emoji_analysis": self._analyze_emojis(text)
             }
         
         # Detect language first
@@ -289,6 +318,8 @@ class TextBlobAnalyzer(NLPAnalyzer):
         # 3. Emotion analysis if available
         if "emotion" in self.ml_models:
             results["emotions"] = self._analyze_emotions(text)
+        else:
+            results["emotions"] = {}
         
         # 4. Extract keywords using enhanced NLTK approach
         results["keywords"] = self._extract_keywords_nltk(text, lang_stopwords)
@@ -298,6 +329,9 @@ class TextBlobAnalyzer(NLPAnalyzer):
         
         # 6. Add language information
         results["language"] = lang_code
+        
+        # 7. Add emoji analysis
+        results["emoji_analysis"] = self._analyze_emojis(text)
         
         return results
     
@@ -539,17 +573,21 @@ class GoogleNLPAnalyzer(NLPAnalyzer):
             text: The text to analyze
             
         Returns:
-            Dictionary containing sentiment, keywords, and language
+            Dictionary containing sentiment, keywords, language, and entities
         """
         if not self.is_available:
-            return self.fallback_analyzer.analyze_text(text)
+            # Fallback when API is not available
+            result = self.fallback_analyzer.analyze_text(text)
+            result["emoji_analysis"] = self._analyze_emojis(text)
+            return result
         
         if not text or text.isspace():
             return {
                 "sentiment": {"score": 0.0, "magnitude": 0.0},
                 "keywords": [],
                 "language": "en",
-                "entities": []
+                "entities": [],
+                "emoji_analysis": self._analyze_emojis(text)
             }
         
         self.logger.debug(f"Analyzing text with Google NLP API: {text[:30]}...")
@@ -611,13 +649,16 @@ class GoogleNLPAnalyzer(NLPAnalyzer):
                 "sentiment": sentiment_dict,
                 "keywords": keywords,
                 "language": lang_code,
-                "entities": entities
+                "entities": entities,
+                "emoji_analysis": self._analyze_emojis(text)
             }
             
         except Exception as e:
             self.logger.error(f"Error analyzing text with Google NLP API: {e}")
             self.logger.info("Falling back to TextBlob for this text")
-            return self.fallback_analyzer.analyze_text(text)
+            result = self.fallback_analyzer.analyze_text(text)
+            result["emoji_analysis"] = self._analyze_emojis(text)
+            return result
     
     def analyze_text_batch(self, texts: List[str], 
                           batch_size: int = 10) -> List[Dict[str, Any]]:

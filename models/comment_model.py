@@ -29,7 +29,28 @@ class Entity:
 
 @dataclass
 class CommentData:
-    """Data class representing a YouTube comment with its metadata and analysis."""
+    """Data class representing a YouTube comment with its metadata and analysis.
+    
+    Attributes:
+        text (str): Comment text.
+        author (str): Comment author.
+        likes (int): Number of likes.
+        time (str): Timestamp as string.
+        sentiment_score (float): Sentiment score.
+        sentiment_magnitude (float): Sentiment magnitude.
+        sentiment_confidence (float): Confidence of transformer sentiment.
+        keywords (List[str]): Extracted keywords.
+        text_length (int): Length of the comment text.
+        language (str): Detected language (ISO 639-1).
+        entities (List[Entity]): Named entities.
+        emotions (Dict[str, float]): Emotion analysis scores.
+        reply_to (Optional[str]): ID of parent comment.
+        reply_count (int): Number of replies.
+        video_id (Optional[str]): Associated video ID.
+        emoji_count (int): Number of detected emojis.
+        emojis (List[str]): List of detected emojis.
+        emoji_sentiment (float): Emoji-based sentiment score.
+    """
     text: str
     author: str
     likes: int = 0
@@ -54,26 +75,23 @@ class CommentData:
         # Calculate text length
         self.text_length = len(self.text) if self.text else 0
         
-        # Extract emojis using safe import
+        # Improved emoji extraction with support for multiple library versions.
         try:
             import emoji
-            if hasattr(emoji, 'EMOJI_DATA'):
-                # For emoji package v1.x
+            if hasattr(emoji, 'is_emoji'):
+                # For newer emoji versions providing is_emoji()
+                self.emojis = [c for c in self.text if emoji.is_emoji(c)]
+            elif hasattr(emoji, 'EMOJI_DATA'):
                 self.emojis = [c for c in self.text if c in emoji.EMOJI_DATA]
-            elif hasattr(emoji, 'emoji_list'):
-                # For emoji package v2.x
-                emoji_list = emoji.emoji_list(self.text)
-                self.emojis = [e['emoji'] for e in emoji_list]
             else:
-                # Fallback if emoji structure isn't as expected
                 self.emojis = []
             self.emoji_count = len(self.emojis)
         except ImportError:
-            logger.warning("Emoji module not installed. Emoji detection disabled.")
+            logger.warning("Emoji module not installed; skipping emoji extraction.")
             self.emojis = []
             self.emoji_count = 0
         except Exception as e:
-            logger.warning(f"Error extracting emojis: {e}")
+            logger.warning(f"Error during emoji extraction: {e}")
             self.emojis = []
             self.emoji_count = 0
         
@@ -86,8 +104,12 @@ class CommentData:
             self.emotions = {}
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert CommentData to dictionary for serialization."""
-        return {
+        """Convert CommentData to a dictionary for serialization.
+        
+        Returns:
+            Dict[str, Any]: Dictionary representation of the comment.
+        """
+        basic_dict = {
             'text': self.text,
             'author': self.author,
             'likes': self.likes,
@@ -107,6 +129,7 @@ class CommentData:
             'emojis': self.emojis,
             'emoji_sentiment': self.emoji_sentiment
         }
+        return basic_dict
 
     def get_sentiment_category(self) -> str:
         """Get the sentiment category based on score."""
@@ -122,7 +145,11 @@ class CommentData:
             return "Very Positive"
     
     def get_primary_emotion(self) -> Optional[Tuple[str, float]]:
-        """Get the primary emotion and its score if emotions are available."""
+        """Get the primary emotion and its score if emotions are available.
+        
+        Returns:
+            Optional[Tuple[str, float]]: Tuple of (emotion, score) or None.
+        """
         if not self.emotions:
             return None
         return max(self.emotions.items(), key=lambda x: x[1])
@@ -168,7 +195,11 @@ class CommentData:
             return None
 
     def get_datetime(self) -> Optional[datetime]:
-        """Convert time string to datetime object."""
+        """Convert the comment's time string to a datetime object.
+        
+        Returns:
+            Optional[datetime]: Parsed datetime or None if parsing fails.
+        """
         return self.parse_relative_time()
 
 
