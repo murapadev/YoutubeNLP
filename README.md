@@ -77,7 +77,7 @@ streamlit run app.py
 
 ## Credits
 
-Created by [Pablo Ramos Muras](https://github.com/murapa96)
+Created by [Pablo Ramos Muras](https://github.com/murapadev)
 
 ## License
 
